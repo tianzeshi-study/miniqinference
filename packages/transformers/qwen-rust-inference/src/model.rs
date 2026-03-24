@@ -41,71 +41,83 @@ impl QwenEngine {
         let seq_len = input_ids.len();
         let batch_size = 1;
 
-        let input_ids_tensor = Value::from_array((vec![batch_size, seq_len], input_ids))
-            .map_err(|e| anyhow::anyhow!("Failed to create input_ids tensor: {:?}", e))?;
-        
+        // 1. Embedding
+        let input_ids_tensor = Value::from_array((vec![batch_size, seq_len], input_ids))?;
         let embed_outputs = self.embed_session.run(vec![
             ("input_ids".to_string(), input_ids_tensor.into_dyn())
         ]).map_err(|e| anyhow::anyhow!("Embedding run failed: {:?}", e))?;
         
-        let (embed_shape, embed_data) = embed_outputs[0].try_extract_tensor::<f32>()
-            .map_err(|e| anyhow::anyhow!("Failed to extract embeds: {:?}", e))?;
-        let inputs_embeds = Value::from_array((embed_shape.to_vec(), embed_data.to_vec()))
-            .map_err(|e| anyhow::anyhow!("Failed to create inputs_embeds: {:?}", e))?;
+        let (embed_shape, embed_data) = embed_outputs[0].try_extract_tensor::<f32>()?;
+        let inputs_embeds = Value::from_array((embed_shape.to_vec(), embed_data.to_vec()))?;
 
-        // Calculate attention mask length based on actual KV cache contents
-        // This is simplified for MVP; in mixed models, the logic depends on whether we use_cache_branch.
-        let kv_len = if is_prefill { 0 } else { 
-            // Simplified: in Qwen3.5, attention_mask usually covers the cumulative seq_len
-            // We'll track it in the main loop instead of calculating from past_key_values here
-            0 
-        };
-        // Let's take the mask_len as a parameter or calculate correctly from position_ids for now
+        // 2. 准备所有可能的输入
         let mask_len = if is_prefill { seq_len } else { 
-            // We will fix this in main.rs to pass the correct cumulative length
             position_ids[0] as usize + 1
         };
         
-        let attention_mask = Value::from_array((vec![batch_size, mask_len], vec![1i64; mask_len]))?;
-        let position_tensor = Value::from_array((vec![batch_size, seq_len], position_ids))?;
-        let use_cache_branch = Value::from_array((vec![1], vec![!is_prefill]))?;
+        let mut all_inputs = std::collections::HashMap::new();
+        
+        // 基础输入
+        all_inputs.insert("inputs_embeds".to_string(), inputs_embeds.into_dyn());
+        all_inputs.insert("attention_mask".to_string(), Value::from_array((vec![batch_size, mask_len], vec![1i64; mask_len]))?.into_dyn());
+        
+        // 3D Position IDs (针对 Qwen 3.5)
+        let mut pos_ids_3d = Vec::with_capacity(3 * seq_len);
+        for _ in 0..3 { pos_ids_3d.extend_from_slice(&position_ids); }
+        all_inputs.insert("position_ids".to_string(), Value::from_array((vec![3, batch_size, seq_len], pos_ids_3d))?.into_dyn());
+        
+        // 动态分支开关
+        all_inputs.insert("use_cache_branch".to_string(), Value::from_array((vec![1], vec![!is_prefill]))?.into_dyn());
 
-        let mut inputs_map = vec![
-            ("inputs_embeds".to_string(), inputs_embeds.into_dyn()),
-            ("attention_mask".to_string(), attention_mask.into_dyn()),
-            ("position_ids".to_string(), position_tensor.into_dyn()),
-            ("use_cache_branch".to_string(), use_cache_branch.into_dyn()),
-        ];
-
+        // KV-Cache 输入
         for i in 0..self.config.num_hidden_layers() {
-            let k = past_key_values.remove(0);
-            let v = past_key_values.remove(0);
-            inputs_map.push((format!("past_key_values.{}.key", i), k));
-            inputs_map.push((format!("past_key_values.{}.value", i), v));
+            let layer_type = self.config.layer_type(i);
+            if layer_type == "full_attention" {
+                all_inputs.insert(format!("past_key_values.{}.key", i), past_key_values.remove(0));
+                all_inputs.insert(format!("past_key_values.{}.value", i), past_key_values.remove(0));
+            } else if layer_type == "linear_attention" {
+                all_inputs.insert(format!("past_conv.{}", i), past_key_values.remove(0));
+                all_inputs.insert(format!("past_recurrent.{}", i), past_key_values.remove(0));
+            }
+        }
+
+        // --- 核心修复：只保留模型声明过的输入 ---
+        let mut inputs_map = Vec::new();
+        for input in self.decoder_session.inputs() {
+            let name = input.name();
+            if let Some(val) = all_inputs.remove(name) {
+                inputs_map.push((name.to_string(), val));
+            }
         }
 
         let mut outputs = self.decoder_session.run(inputs_map)
             .map_err(|e| anyhow::anyhow!("Decoder run failed: {:?}", e))?;
 
+        // 3. 提取 Logits 并采样
         let logits_value = outputs.remove("logits")
             .ok_or_else(|| anyhow::anyhow!("Missing logits"))?;
-        let (_, logits_data) = logits_value.try_extract_tensor::<f32>()
-            .map_err(|e| anyhow::anyhow!("Failed to extract logits: {:?}", e))?;
+        let (_, logits_data) = logits_value.try_extract_tensor::<f32>()?;
         
-        let vocab_size = self.config.text_config.vocab_size;
+        let vocab_size = self.config.vocab_size();
         let last_token_logits = &logits_data[logits_data.len() - vocab_size..];
         
         let next_token = last_token_logits.iter().enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(i, _)| i as u32).unwrap();
 
+        // 4. 更新 KV-cache
         for i in 0..self.config.num_hidden_layers() {
-            let pk = outputs.remove(format!("present.{}.key", i))
-                .ok_or_else(|| anyhow::anyhow!("Missing present key layer {}", i))?;
-            let pv = outputs.remove(format!("present.{}.value", i))
-                .ok_or_else(|| anyhow::anyhow!("Missing present value layer {}", i))?;
-            past_key_values.push(pk);
-            past_key_values.push(pv);
+            let layer_type = self.config.layer_type(i);
+            if layer_type == "full_attention" {
+                // 有些模型输出名可能叫 present.i.key 或 present_key_values.i.key
+                let k_name = format!("present.{}.key", i);
+                let v_name = format!("present.{}.value", i);
+                past_key_values.push(outputs.remove(k_name).or_else(|| outputs.remove(format!("present_key_values.{}.key", i))).unwrap());
+                past_key_values.push(outputs.remove(v_name).or_else(|| outputs.remove(format!("present_key_values.{}.value", i))).unwrap());
+            } else if layer_type == "linear_attention" {
+                past_key_values.push(outputs.remove(format!("present_conv.{}", i)).unwrap());
+                past_key_values.push(outputs.remove(format!("present_recurrent.{}", i)).unwrap());
+            }
         }
 
         Ok(next_token)
@@ -116,44 +128,24 @@ impl QwenEngine {
         let mut cache = Vec::with_capacity(n_layers * 2);
         for i in 0..n_layers {
             let layer_type = self.config.layer_type(i);
-            let (shape_k, shape_v) = if layer_type == "linear_attention" {
-                // Linear attention layers in Qwen3.5 usually have a fixed state size (e.g. 1, 16, 128, 128)
-                // We use 1 instead of 0 for initial dummy dimensions if needed, 
-                // but let's try to find the exact required shape from config.
-                let heads = self.config.text_config.linear_num_key_heads;
-                let dim_k = self.config.text_config.linear_key_head_dim;
-                let dim_v = self.config.text_config.linear_key_head_dim; // or value_head_dim
-                // Linear attention states are often [batch, heads, d_model/heads, head_dim] 
-                // but for ONNX export, check optimum's behavior.
-                // Usually it's [1, heads, 128, 128] or similar.
-                // Based on "dimension #3" error, if we use 0 it might fail.
-                (vec![1, heads, 128, 128], vec![1, heads, 128, 128])
-            } else {
-                // Standard full attention
+            if layer_type == "full_attention" {
                 let heads = self.config.text_config.num_key_value_heads;
-                let dim = self.config.text_config.head_dim;
-                // If 0 is not allowed, we use 1 with a mask, but many ONNX models 
-                // require EXACTLY what the graph defines. 
-                // If the error says dimension #3, let's ensure head_dim is > 0.
-                (vec![1, heads, 0, dim], vec![1, heads, 0, dim])
-            };
-
-            // If ort strictly forbids 0-sized tensors in from_array:
-            let k_tensor = if shape_k[2] == 0 {
-                // Use a trick to create a 0-sized tensor if from_array fails
-                Value::from_array((vec![1, shape_k[1], 0, shape_k[3]], Vec::<f32>::new()))?
+                let dim = self.config.head_dim();
+                // 既然 0 维度报错，我们使用 1 维度占位。Merged 模型在 prefill 分支下会自动处理它。
+                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; 1 * heads * 1 * dim]))?.into_dyn());
+                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; 1 * heads * 1 * dim]))?.into_dyn());
             } else {
-                Value::from_array((shape_k, vec![0f32; 1 * 16 * 128 * 128]))? // Placeholder size
-            };
-            
-            let v_tensor = if shape_v[2] == 0 {
-                Value::from_array((vec![1, shape_v[1], 0, shape_v[3]], Vec::<f32>::new()))?
-            } else {
-                Value::from_array((shape_v, vec![0f32; 1 * 16 * 128 * 128]))?
-            };
+                let key_dim = self.config.text_config.linear_num_key_heads * self.config.text_config.linear_key_head_dim;
+                let value_dim = self.config.text_config.linear_num_value_heads * self.config.text_config.linear_value_head_dim;
+                let conv_dim = key_dim * 2 + value_dim;
+                let kernel_dim = self.config.text_config.linear_conv_kernel_dim;
+                let heads = self.config.text_config.linear_num_value_heads;
+                let dim_k = self.config.text_config.linear_key_head_dim;
+                let dim_v = self.config.text_config.linear_value_head_dim;
 
-            cache.push(k_tensor.into_dyn());
-            cache.push(v_tensor.into_dyn());
+                cache.push(Value::from_array((vec![1, conv_dim, kernel_dim], vec![0.0f32; 1 * conv_dim * kernel_dim]))?.into_dyn());
+                cache.push(Value::from_array((vec![1, heads, dim_k, dim_v], vec![0.0f32; 1 * heads * dim_k * dim_v]))?.into_dyn());
+            }
         }
         Ok(cache)
     }

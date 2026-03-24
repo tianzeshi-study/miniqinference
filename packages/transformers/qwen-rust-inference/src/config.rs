@@ -14,11 +14,15 @@ pub struct TextConfig {
     pub layer_types: Vec<String>,
     pub linear_num_key_heads: usize,
     pub linear_key_head_dim: usize,
-    pub head_dim: usize,
+    pub linear_num_value_heads: usize,
+    pub linear_value_head_dim: usize,
+    pub linear_conv_kernel_dim: usize,
+    pub head_dim: Option<usize>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct QwenConfig {
+    pub model_type: String,
     pub text_config: TextConfig,
 }
 
@@ -36,6 +40,16 @@ impl QwenConfig {
 
     pub fn layer_type(&self, index: usize) -> &str {
         &self.text_config.layer_types[index]
+    }
+
+    pub fn head_dim(&self) -> usize {
+        self.text_config.head_dim.unwrap_or_else(|| {
+            self.text_config.hidden_size / self.text_config.num_attention_heads
+        })
+    }
+
+    pub fn vocab_size(&self) -> usize {
+        self.text_config.vocab_size
     }
 
     pub fn get_eos_id(&self) -> u32 {
