@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 ort = { version = "2.0.0-rc.9", features = ["ndarray"] }
-tokenizers = "0.19"
+tokenizers = "0.20"
 ndarray = "0.15"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
