@@ -21,9 +21,23 @@ pub struct TextConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct VisionConfig {
+    pub depth: usize,
+    pub hidden_size: usize, // Matches JSON
+    pub patch_size: usize,
+    pub temporal_patch_size: usize,
+    pub num_heads: usize,
+    pub spatial_merge_size: usize,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct QwenConfig {
     pub model_type: String,
     pub text_config: TextConfig,
+    pub vision_config: Option<VisionConfig>,
+    pub image_token_id: Option<u32>,
+    pub vision_start_token_id: Option<u32>,
+    pub vision_end_token_id: Option<u32>,
 }
 
 impl QwenConfig {
