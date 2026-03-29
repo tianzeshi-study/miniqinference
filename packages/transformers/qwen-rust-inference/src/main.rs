@@ -76,13 +76,13 @@ fn main() -> Result<()> {
     if let (Some(image_path), true) = (args.image, !image_token_indices.is_empty()) {
         println!("\n[Vision] Encoding image {:?}...", image_path);
         let img = image::open(image_path)?;
-        let (image_embeds, shape, _thw) = engine.encode_image(&img)?;
+        let (image_embeds, _shape, _thw) = engine.encode_image(&img)?;
         
         println!("[Vision] Running prefill with image...");
         next_token = engine.forward_with_vision(
             input_ids.clone(),
             image_embeds,
-            shape,
+            // shape,
             image_token_indices,
             &mut kv_cache,
         )?;

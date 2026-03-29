@@ -167,7 +167,7 @@ impl QwenEngine {
         &mut self,
         input_ids: Vec<i64>,
         image_embeds: Vec<f32>,
-        image_embed_shape: Vec<usize>,
+        // image_embed_shape: Vec<usize>,
         image_token_indices: Vec<usize>,
         past_key_values: &mut Vec<DynValue>,
     ) -> Result<u32> {
@@ -337,8 +337,8 @@ impl QwenEngine {
             if layer_type == "full_attention" {
                 let heads = self.config.text_config.num_key_value_heads;
                 let dim = self.config.head_dim();
-                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; 1 * heads * 1 * dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
-                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; 1 * heads * 1 * dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
+                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; heads * dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
+                cache.push(Value::from_array((vec![1, heads, 1, dim], vec![0.0f32; heads * dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
             } else {
                 let key_dim = self.config.text_config.linear_num_key_heads * self.config.text_config.linear_key_head_dim;
                 let value_dim = self.config.text_config.linear_num_value_heads * self.config.text_config.linear_value_head_dim;
@@ -348,8 +348,8 @@ impl QwenEngine {
                 let dim_k = self.config.text_config.linear_key_head_dim;
                 let dim_v = self.config.text_config.linear_value_head_dim;
 
-                cache.push(Value::from_array((vec![1, conv_dim, kernel_dim], vec![0.0f32; 1 * conv_dim * kernel_dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
-                cache.push(Value::from_array((vec![1, heads, dim_k, dim_v], vec![0.0f32; 1 * heads * dim_k * dim_v])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
+                cache.push(Value::from_array((vec![1, conv_dim, kernel_dim], vec![0.0f32; conv_dim * kernel_dim])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
+                cache.push(Value::from_array((vec![1, heads, dim_k, dim_v], vec![0.0f32; heads * dim_k * dim_v])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
             }
         }
         Ok(cache)

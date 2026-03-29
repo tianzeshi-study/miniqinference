@@ -20,6 +20,7 @@ pub struct TextConfig {
     pub head_dim: Option<usize>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct VisionConfig {
     pub depth: usize,
@@ -30,6 +31,7 @@ pub struct VisionConfig {
     pub spatial_merge_size: usize,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct QwenConfig {
     pub model_type: String,
@@ -69,7 +71,7 @@ impl QwenConfig {
     pub fn get_eos_id(&self) -> u32 {
         match &self.text_config.eos_token_id {
             Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(151643) as u32,
-            Some(serde_json::Value::Array(a)) => a.get(0).and_then(|v| v.as_u64()).unwrap_or(151643) as u32,
+            Some(serde_json::Value::Array(a)) => a.first().and_then(|v| v.as_u64()).unwrap_or(151643) as u32,
             _ => 151643,
         }
     }
