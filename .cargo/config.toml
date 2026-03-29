@@ -1,0 +1,13 @@
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "target-feature=-crt-static",
+]
+
+[env]
+# 仅针对 x86_64 Windows MSVC 目标应用 /MD 标志，避免干扰 Linux (WSL) 编译
+CFLAGS_x86_64_pc_windows_msvc = "/MD"
+CXXFLAGS_x86_64_pc_windows_msvc = "/MD"
+
+# CL 和 _CL_ 是 MSVC 编译器专用环境变量，通常 Linux 的编译器不会识别它们
+CL = "/MD"
+_CL_ = "/MD"
