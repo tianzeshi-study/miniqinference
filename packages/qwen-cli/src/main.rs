@@ -1,10 +1,7 @@
-mod config;
-mod model;
-
+use qwen_core::config::QwenConfig;
+use qwen_core::model::QwenEngine;
 use anyhow::Result;
 use clap::Parser;
-use config::QwenConfig;
-use model::QwenEngine;
 use ort::value::DynValue;
 use std::io::{self, Write};
 use std::path::PathBuf;

@@ -1,7 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "packages/transformers/qwen-rust-inference"
+    "packages/qwen-core",
+    "packages/qwen-cli",
+    "packages/qwen-python",
 ]
 
 [workspace.package]
@@ -11,3 +13,11 @@ authors = ["Tianze <tianzeshi_study@outlook.com>"]
 license = "MIT"
 
 [workspace.dependencies]
+# 统一管理版本
+ort = { version = "2.0.0-rc.9", features = ["ndarray"] }
+tokenizers = "0.20"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+image = "0.25.10"
+ndarray = "0.15.6"
