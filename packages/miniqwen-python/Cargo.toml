@@ -1,10 +1,10 @@
 [package]
-name = "qwen-python"
+name = "miniqwen-python"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "qwen_python"
+name = "miniqwen_python"
 crate-type = ["cdylib"]
 
 [dependencies]

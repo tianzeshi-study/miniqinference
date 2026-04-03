@@ -1005,6 +1005,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
+name = "miniqwen-python"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "ort",
+ "pyo3",
+ "qwen-core",
+ "serde_json",
+ "tokenizers",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1543,19 +1556,6 @@ dependencies = [
  "ndarray-stats",
  "ort",
  "serde",
- "serde_json",
- "tokenizers",
-]
-
-[[package]]
-name = "qwen-python"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "image",
- "ort",
- "pyo3",
- "qwen-core",
  "serde_json",
  "tokenizers",
 ]

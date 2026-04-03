@@ -2,8 +2,8 @@
 resolver = "2"
 members = [
     "packages/qwen-core",
-    "packages/qwen-cli",
-    "packages/qwen-python",
+    "packages/miniqwen-cli",
+    "packages/miniqwen-python",
 ]
 
 [workspace.package]
