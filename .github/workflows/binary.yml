@@ -45,7 +45,11 @@ jobs:
           args: --release --out dist --manifest-path packages/miniqwen-cli/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
-          # before-script-linux: yum update -y && yum install -y openssl openssl-devel perl-IPC-Cmd
+          before-script-linux: yum update -y && yum install -y perl-IPC-Cmd
+        env:
+          OPENSSL_STATIC: 1
+          OPENSSL_DIR: /usr/local/ssl
+
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -74,7 +78,11 @@ jobs:
           args: --release --out dist --manifest-path packages/miniqwen-cli/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
-          # before-script-linux: yum update -y && yum install -y openssl openssl-devel perl-IPC-Cmd
+          before-script-linux: yum update -y && yum install -y perl-IPC-Cmd
+        env:
+          OPENSSL_STATIC: 1
+          OPENSSL_DIR: /usr/local/ssl
+
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
