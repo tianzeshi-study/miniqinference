@@ -9,12 +9,10 @@ path = "src/lib.rs"
 
 [dependencies]
 ort = { version = "2.0.0-rc.9", features = ["ndarray"] }
-tokenizers = "0.20"
+tokenizers = { workspace = true }
 ndarray = "0.15.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 image = "0.25.10"
 ndarray-stats = "0.7.0"
-openssl = { workspace = true }
-openssl-sys = { workspace = true }
