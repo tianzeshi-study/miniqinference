@@ -47,13 +47,15 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          manylinux: ${{ matrix.platform.manylinux || 'auto' }}
+          manylinux: auto
           before-script-linux: |
             if command -v yum &> /dev/null; then
-              yum update -y && yum install -y perl-IPC-Cmd openssl-devel pkgconfig
+              yum update -y && yum install -y perl-IPC-Cmd openssl-devel pkgconfig make
             elif command -v apk &> /dev/null; then
               apk add --no-cache perl make openssl-dev pkgconfig
             fi
+        env:
+          OPENSSL_NO_VENDOR: 0
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -85,10 +87,14 @@ jobs:
           args: --release --out dist --find-interpreter --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
-          before-script-linux: yum update -y && yum install -y perl-IPC-Cmd openssl-dev pkgconfig
+          before-script-linux: |
+            if command -v yum &> /dev/null; then
+              yum update -y && yum install -y perl-IPC-Cmd openssl-devel pkgconfig make
+            elif command -v apk &> /dev/null; then
+              apk add --no-cache perl make openssl-dev pkgconfig
+            fi
         env:
-          OPENSSL_STATIC: 1
-          OPENSSL_DIR: /usr/local/ssl
+          OPENSSL_NO_VENDOR: 0
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
