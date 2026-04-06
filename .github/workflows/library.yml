@@ -30,7 +30,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev perl make
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            sudo apt-get install -y g++-aarch64-linux-gnu
           fi
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -53,7 +53,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        target: [x64, aarch64]
+        target: [x86_64, x64, aarch64]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -76,7 +76,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        target: [x86_64, aarch64]
+        target: [aarch64] # ort-sys@2.0.0-rc.12: ort does not provide prebuilt binaries for the target `x86_64-apple-darwin` with feature set (no features).
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
