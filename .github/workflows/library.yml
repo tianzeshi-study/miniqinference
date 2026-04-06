@@ -42,7 +42,8 @@ jobs:
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           fi
           pip install maturin
-          maturin build --release --out dist --target ${{ matrix.target }} --manifest-path packages/miniqwen-python/Cargo.toml
+          # 显式指定使用当前 Python 解释器，避免自动探测到 3.14
+          maturin build --release --out dist --target ${{ matrix.target }} -i python --manifest-path packages/miniqwen-python/Cargo.toml
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
       - name: Upload wheels
@@ -61,7 +62,7 @@ jobs:
           - target: x86
             python_arch: x86
           - target: aarch64
-            python_arch: x64  # 使用 x64 Python 进行 cross-compile
+            python_arch: x64
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -72,7 +73,8 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter --manifest-path packages/miniqwen-python/Cargo.toml
+          # 移除 --find-interpreter，改用指定解释器
+          args: --release --out dist -i python --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
@@ -96,7 +98,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter --manifest-path packages/miniqwen-python/Cargo.toml
+          args: --release --out dist -i python --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
