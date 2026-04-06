@@ -42,8 +42,9 @@ jobs:
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           fi
           pip install maturin
-          # 显式指定使用当前 Python 解释器，避免自动探测到 3.14
-          maturin build --release --out dist --target ${{ matrix.target }} -i python --manifest-path packages/miniqwen-python/Cargo.toml
+          # 使用环境变量强制指定 Python 解释器
+          export MATURIN_PYTHON=$(which python)
+          maturin build --release --out dist --target ${{ matrix.target }} --manifest-path packages/miniqwen-python/Cargo.toml
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
       - name: Upload wheels
@@ -73,11 +74,13 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          # 移除 --find-interpreter，改用指定解释器
-          args: --release --out dist -i python --manifest-path packages/miniqwen-python/Cargo.toml
+          # 移除 -i 参数，maturin-action 会自动寻找 setup-python 提供的解释器
+          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+          # 通过环境变量传递 Python 路径（powershell 兼容方式）
+          MATURIN_PYTHON: python
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -98,10 +101,11 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python --manifest-path packages/miniqwen-python/Cargo.toml
+          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+          MATURIN_PYTHON: python
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
