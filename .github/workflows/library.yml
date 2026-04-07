@@ -74,13 +74,10 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          # 移除 -i 参数，maturin-action 会自动寻找 setup-python 提供的解释器
-          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml
+          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml -i python
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
-          # 通过环境变量传递 Python 路径（powershell 兼容方式）
-          MATURIN_PYTHON: python
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -101,11 +98,10 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml
+          args: --release --out dist --manifest-path packages/miniqwen-python/Cargo.toml -i python
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
-          MATURIN_PYTHON: python
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
