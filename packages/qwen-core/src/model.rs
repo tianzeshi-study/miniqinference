@@ -7,6 +7,114 @@ use std::path::Path;
 use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4, s};
 
+fn preprocess_image(
+    image: &DynamicImage,
+    patch_size: usize,
+    temporal_patch_size: usize,
+    merge_size: usize,
+    min_pixels: u32,
+    max_pixels: u32,
+) -> Result<(Array2<f32>, [i64; 3])> {
+    let (width, height) = image.dimensions();
+    let factor = (patch_size * merge_size) as u32;
+    let (new_width, new_height) = smart_resize(height, width, factor, min_pixels, max_pixels);
+
+    // 1. 高质量缩放
+    let resized = image.resize_exact(new_width, new_height, image::imageops::FilterType::CatmullRom);
+    
+    // 2. 转换为 [T, C, H, W] 张量
+    // Qwen2-VL 预处理会将一张图在时间维度上复制或拆分，通常静态图 T = temporal_patch_size
+    let mut patches = Array4::<f32>::zeros((temporal_patch_size, 3, new_height as usize, new_width as usize));
+    let mean = [0.5, 0.5, 0.5];
+    let std = [0.5, 0.5, 0.5];
+    
+    for (x, y, color) in resized.pixels() {
+        for t in 0..temporal_patch_size {
+            for c in 0..3 {
+                patches[[t, c, y as usize, x as usize]] = (color[c] as f32 / 255.0 - mean[c]) / std[c];
+            }
+        }
+    }
+
+    // 3. 计算维度
+    let channel = 3;
+    let grid_t = 1; // 经过时间轴合并后，逻辑上的 T 变为 1
+    let grid_h = new_height as usize / patch_size;
+    let grid_w = new_width as usize / patch_size;
+    let gh_m = grid_h / merge_size;
+    let gw_m = grid_w / merge_size;
+
+    // 修复 E0277：将元组改为数组 [usize; 8]
+    // 这是 ndarray 0.15 处理高维张量的标准做法
+    let shape_8d = [
+        grid_t, 
+        channel, 
+        gh_m, 
+        merge_size, 
+        patch_size, 
+        gw_m, 
+        merge_size, 
+        patch_size
+    ];
+
+    // 4. 执行重排与展平 (等效于 JS 的 .permute(0, 3, 6, 4, 7, 2, 1, 5, 8))
+    let mut flattened = Array2::<f32>::zeros((
+        grid_t * grid_h * grid_w, 
+        channel * temporal_patch_size * patch_size * patch_size
+    ));
+
+    let mut idx = 0;
+    // 严格按照 Transformers.js 的空间块排列顺序
+    for i in 0..gh_m {
+        for j in 0..gw_m {
+            for m_h in 0..merge_size {
+                for m_w in 0..merge_size {
+                    let mut p_idx = 0;
+                    // 核心特征向量构造：C -> T -> PH -> PW
+                    for c in 0..channel {
+                        for tp in 0..temporal_patch_size {
+                            for ph in 0..patch_size {
+                                for pw in 0..patch_size {
+                                    let h = (i * merge_size + m_h) * patch_size + ph;
+                                    let w = (j * merge_size + m_w) * patch_size + pw;
+                                    flattened[[idx, p_idx]] = patches[[tp, c, h, w]];
+                                    p_idx += 1;
+                                }
+                            }
+                        }
+                    }
+                    idx += 1;
+                }
+            }
+        }
+    }
+
+    // 返回 grid_thw，注意 Qwen2-VL 期望的是合并后的 grid 尺寸
+    // 即 [1, grid_h, grid_w]
+    
+    println!("=== RUST PREPROCESSING DEBUG ===");
+    println!("flatten_patches shape: {:?}", flattened.shape());
+    
+    if let Some(slice) = flattened.as_slice() {
+        let len = slice.len();
+        let first_10: Vec<f32> = slice.iter().take(10).cloned().collect();
+        let last_10: Vec<f32> = if len > 10 {
+            slice[len - 10..].to_vec()
+        } else {
+            slice.to_vec()
+        };
+        println!("flatten_patches first 10: {:?}", first_10);
+        println!("flatten_patches last 10: {:?}", last_10);
+    }
+    
+    let sum: f32 = flattened.iter().sum();
+    println!("flatten_patches sum: {}", sum);
+    
+    println!("image_grid_thw data: {:?}", [1i64, grid_h as i64, grid_w as i64]);
+    println!("==============================\n");
+
+    Ok((flattened, [1i64, grid_h as i64, grid_w as i64]))
+}
 fn smart_resize(
     height: u32,
     width: u32,
@@ -37,7 +145,7 @@ fn smart_resize(
     (w_bar, h_bar)
 }
 
-fn preprocess_image(
+fn preprocess_image1(
     image: &DynamicImage,
     patch_size: usize,
     temporal_patch_size: usize,
@@ -52,10 +160,12 @@ fn preprocess_image(
     let resized = image.resize_exact(new_width, new_height, image::imageops::FilterType::Triangle);
     let mut pixels = Array4::<f32>::zeros((1, 3, new_height as usize, new_width as usize));
 
+    let mean = [0.48145466, 0.4578275, 0.40821073];
+    let std = [0.26862954, 0.26130258, 0.27577711];
     for (x, y, color) in resized.pixels() {
-        pixels[[0, 0, y as usize, x as usize]] = (color[0] as f32 / 255.0 - 0.5) / 0.5;
-        pixels[[0, 1, y as usize, x as usize]] = (color[1] as f32 / 255.0 - 0.5) / 0.5;
-        pixels[[0, 2, y as usize, x as usize]] = (color[2] as f32 / 255.0 - 0.5) / 0.5;
+        pixels[[0, 0, y as usize, x as usize]] = (color[0] as f32 / 255.0 - mean[0]) / std[0];
+        pixels[[0, 1, y as usize, x as usize]] = (color[1] as f32 / 255.0 - mean[1]) / std[1];
+        pixels[[0, 2, y as usize, x as usize]] = (color[2] as f32 / 255.0 - mean[2]) / std[2];
     }
 
     let mut patches = Array4::<f32>::zeros((temporal_patch_size, 3, new_height as usize, new_width as usize));
@@ -72,22 +182,32 @@ fn preprocess_image(
     let num_patches = grid_t * grid_h * grid_w;
     let mut flattened = Array2::<f32>::zeros((num_patches, patch_dim));
 
+    let blocks_h = grid_h / merge_size;
+    let blocks_w = grid_w / merge_size;
+    
     let mut idx = 0;
     for t in 0..grid_t {
-        for h in 0..grid_h {
-            for w in 0..grid_w {
-                let mut p_idx = 0;
-                for c in 0..channel {
-                    for tp in 0..temporal_patch_size {
-                        for ph in 0..patch_size {
-                            for pw in 0..patch_size {
-                                flattened[[idx, p_idx]] = patches[[t * temporal_patch_size + tp, c, h * patch_size + ph, w * patch_size + pw]];
-                                p_idx += 1;
+        for b_h in 0..blocks_h {
+            for b_w in 0..blocks_w {
+                for m_h in 0..merge_size {
+                    for m_w in 0..merge_size {
+                        let h = b_h * merge_size + m_h;
+                        let w = b_w * merge_size + m_w;
+                        
+                        let mut p_idx = 0;
+                        for c in 0..channel {
+                            for tp in 0..temporal_patch_size {
+                                for ph in 0..patch_size {
+                                    for pw in 0..patch_size {
+                                        flattened[[idx, p_idx]] = patches[[t * temporal_patch_size + tp, c, h * patch_size + ph, w * patch_size + pw]];
+                                        p_idx += 1;
+                                    }
+                                }
                             }
                         }
+                        idx += 1;
                     }
                 }
-                idx += 1;
             }
         }
     }
@@ -144,8 +264,8 @@ impl QwenEngine {
             v_conf.patch_size,
             v_conf.temporal_patch_size,
             v_conf.spatial_merge_size,
-            56 * 56,
-            16384 * 16384,
+            256 * 256,
+            4096 * 4096,
         )?;
 
         // pixel_values 应该是 [num_patches, patch_dim]
@@ -167,10 +287,10 @@ impl QwenEngine {
         &mut self,
         input_ids: Vec<i64>,
         image_embeds: Vec<f32>,
-        // image_embed_shape: Vec<usize>,
+        grid_thw: [i64; 3],
         image_token_indices: Vec<usize>,
         past_key_values: &mut Vec<DynValue>,
-    ) -> Result<u32> {
+    ) -> Result<(u32, i64)> {
         let batch_size = 1;
         let seq_len = input_ids.len();
 
@@ -199,10 +319,50 @@ impl QwenEngine {
         all_inputs.insert("inputs_embeds".to_string(), inputs_embeds.into_dyn());
         all_inputs.insert("attention_mask".to_string(), Value::from_array((vec![batch_size, final_seq_len], vec![1i64; final_seq_len])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
         
-        let mut pos_ids = Vec::with_capacity(final_seq_len);
-        for i in 0..final_seq_len { pos_ids.push(i as i64); }
+        let mut t_ids = Vec::with_capacity(final_seq_len);
+        let mut h_ids = Vec::with_capacity(final_seq_len);
+        let mut w_ids = Vec::with_capacity(final_seq_len);
+
+        for i in 0..img_start {
+            t_ids.push(i as i64);
+            h_ids.push(i as i64);
+            w_ids.push(i as i64);
+        }
+
+        let spatial_merge_size = self.config.vision_config.as_ref().map(|v| v.spatial_merge_size).unwrap_or(2) as i64;
+        let llm_grid_t = grid_thw[0];
+        let llm_grid_h = grid_thw[1] / spatial_merge_size;
+        let llm_grid_w = grid_thw[2] / spatial_merge_size;
+        let grid_size = (llm_grid_t * llm_grid_h * llm_grid_w) as usize;
+        let offset = img_start as i64;
+
+        for i in 0..grid_size as i64 {
+            t_ids.push(offset + i / (llm_grid_h * llm_grid_w));
+            h_ids.push(offset + (i / llm_grid_w) % llm_grid_h);
+            w_ids.push(offset + i % llm_grid_w);
+        }
+
+        let max_img_pos = llm_grid_t.max(llm_grid_h).max(llm_grid_w);
+        let st_idx = offset + max_img_pos;
+        let remaining = final_seq_len.saturating_sub(img_start + grid_size);
+        for i in 0..remaining as i64 {
+            t_ids.push(st_idx + i);
+            h_ids.push(st_idx + i);
+            w_ids.push(st_idx + i);
+        }
+
+        let max_pos = if remaining > 0 {
+            st_idx + remaining as i64 - 1
+        } else if grid_size > 0 {
+            offset + max_img_pos - 1
+        } else {
+            img_start as i64 - 1
+        };
+
         let mut pos_ids_3d = Vec::with_capacity(3 * final_seq_len);
-        for _ in 0..3 { pos_ids_3d.extend_from_slice(&pos_ids); }
+        pos_ids_3d.extend_from_slice(&t_ids);
+        pos_ids_3d.extend_from_slice(&h_ids);
+        pos_ids_3d.extend_from_slice(&w_ids);
         all_inputs.insert("position_ids".to_string(), Value::from_array((vec![3, batch_size, final_seq_len], pos_ids_3d)).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
         
         all_inputs.insert("use_cache_branch".to_string(), Value::from_array((vec![1], vec![false])).map_err(|e| anyhow::anyhow!("{:?}", e))?.into_dyn());
@@ -248,7 +408,7 @@ impl QwenEngine {
             }
         }
 
-        Ok(next_token)
+        Ok((next_token, max_pos))
     }
 
     pub fn forward(
@@ -256,6 +416,7 @@ impl QwenEngine {
         input_ids: Vec<i64>,
         past_key_values: &mut Vec<DynValue>,
         position_ids: Vec<i64>,
+        mask_len: usize,
         is_prefill: bool,
     ) -> Result<u32> {
         let seq_len = input_ids.len();
@@ -268,10 +429,6 @@ impl QwenEngine {
         
         let (embed_shape, embed_data) = embed_outputs[0].try_extract_tensor::<f32>().map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let inputs_embeds = Value::from_array((embed_shape.to_vec(), embed_data.to_vec())).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-
-        let mask_len = if is_prefill { seq_len } else { 
-            position_ids[0] as usize + 1
-        };
         
         let mut all_inputs = std::collections::HashMap::new();
         all_inputs.insert("inputs_embeds".to_string(), inputs_embeds.into_dyn());

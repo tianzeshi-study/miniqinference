@@ -68,9 +68,22 @@ impl InferencePipeline {
             enable_thinking,
         })?;
 
-        let encoding = self.tokenizer.encode(rendered.as_str(), false)
-            .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
-        let input_ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
+        let image_pad_token_id = self.tokenizer.token_to_id("<|image_pad|>")
+            .map(|id| id as i64)
+            .unwrap_or_else(|| self.config.image_token_id.unwrap_or(151655) as i64);
+
+        let mut input_ids = Vec::new();
+        let parts: Vec<&str> = rendered.split("<|image_pad|>").collect();
+        for (i, part) in parts.iter().enumerate() {
+            if !part.is_empty() {
+                let encoding = self.tokenizer.encode(*part, false)
+                    .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
+                input_ids.extend(encoding.get_ids().iter().map(|&x| x as i64));
+            }
+            if i < parts.len() - 1 {
+                input_ids.push(image_pad_token_id);
+            }
+        }
 
         Ok((input_ids, rendered))
     }
@@ -93,7 +106,9 @@ impl InferencePipeline {
         let mut kv_cache: Vec<DynValue> = self.engine.create_empty_kv_cache()?;
 
         let eos_id = self.config.get_eos_id();
-        let image_pad_token_id = self.config.image_token_id.unwrap_or(248056) as i64;
+        let image_pad_token_id = self.tokenizer.token_to_id("<|image_pad|>")
+            .map(|id| id as i64)
+            .unwrap_or_else(|| self.config.image_token_id.unwrap_or(151655) as i64);
 
         // Find image token indices
         let image_token_indices: Vec<usize> = input_ids
@@ -105,26 +120,33 @@ impl InferencePipeline {
 
         let mut next_token: u32;
         let mut current_pos: i64;
+        let mut kv_len: usize;
 
         // Prefill
         if let (Some(img), true) = (image, !image_token_indices.is_empty()) {
-            let (image_embeds, _shape, _thw) = self.engine.encode_image(img)?;
-            next_token = self.engine.forward_with_vision(
+            let (image_embeds, _shape, thw) = self.engine.encode_image(img)?;
+            let n_image_tokens = image_embeds.len() / self.config.text_config.hidden_size;
+            let result = self.engine.forward_with_vision(
                 input_ids.clone(),
                 image_embeds,
+                thw,
                 image_token_indices,
                 &mut kv_cache,
             )?;
-            current_pos = input_ids.len() as i64;
+            next_token = result.0;
+            current_pos = result.1 + 1;
+            kv_len = input_ids.len() - 1 + n_image_tokens;
         } else {
             let seq_len = input_ids.len();
             next_token = self.engine.forward(
                 input_ids,
                 &mut kv_cache,
                 (0..seq_len as i64).collect(),
+                seq_len,
                 true,
             )?;
             current_pos = seq_len as i64;
+            kv_len = seq_len;
         }
 
         // Decode loop
@@ -148,9 +170,11 @@ impl InferencePipeline {
                 vec![next_token as i64],
                 &mut kv_cache,
                 vec![current_pos],
+                kv_len + 1,
                 false,
             )?;
             current_pos += 1;
+            kv_len += 1;
         }
 
         Ok(full_output)
