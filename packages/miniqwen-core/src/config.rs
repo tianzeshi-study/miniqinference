@@ -76,3 +76,65 @@ impl QwenConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_deserialization() {
+        let json = r#"{
+            "model_type": "qwen2_vl",
+            "text_config": {
+                "num_hidden_layers": 2,
+                "num_key_value_heads": 4,
+                "hidden_size": 128,
+                "vocab_size": 1000,
+                "eos_token_id": 151643,
+                "num_attention_heads": 8,
+                "layer_types": ["full_attention", "full_attention"],
+                "linear_num_key_heads": 0,
+                "linear_key_head_dim": 0,
+                "linear_num_value_heads": 0,
+                "linear_value_head_dim": 0,
+                "linear_conv_kernel_dim": 0
+            },
+            "vision_config": {
+                "depth": 1,
+                "hidden_size": 64,
+                "patch_size": 14,
+                "temporal_patch_size": 2,
+                "num_heads": 4,
+                "spatial_merge_size": 2
+            }
+        }"#;
+        let config: QwenConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.model_type, "qwen2_vl");
+        assert_eq!(config.num_hidden_layers(), 2);
+        assert_eq!(config.head_dim(), 16); // 128 / 8
+        assert_eq!(config.get_eos_id(), 151643);
+    }
+
+    #[test]
+    fn test_eos_id_array() {
+        let json = r#"{
+            "model_type": "qwen2",
+            "text_config": {
+                "num_hidden_layers": 1,
+                "num_key_value_heads": 1,
+                "hidden_size": 64,
+                "vocab_size": 100,
+                "eos_token_id": [123, 456],
+                "num_attention_heads": 1,
+                "layer_types": ["full_attention"],
+                "linear_num_key_heads": 0,
+                "linear_key_head_dim": 0,
+                "linear_num_value_heads": 0,
+                "linear_value_head_dim": 0,
+                "linear_conv_kernel_dim": 0
+            }
+        }"#;
+        let config: QwenConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.get_eos_id(), 123);
+    }
+}

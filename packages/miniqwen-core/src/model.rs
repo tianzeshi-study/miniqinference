@@ -430,3 +430,27 @@ impl QwenEngine {
         Ok(cache)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smart_resize_simple() {
+        // height, width, factor, min_pixels, max_pixels
+        // simple case: factor=28, min=256*256, max=4096*4096
+        let (w, h) = smart_resize(1000, 1000, 28, 256 * 256, 4096 * 4096);
+        assert_eq!(w % 28, 0);
+        assert_eq!(h % 28, 0);
+        assert!(w * h >= 256 * 256);
+        assert!(w * h <= 4096 * 4096);
+    }
+
+    #[test]
+    fn test_smart_resize_min() {
+        let (w, h) = smart_resize(100, 100, 28, 256 * 256, 4096 * 4096);
+        assert!(w * h >= 256 * 256);
+        assert_eq!(w % 28, 0);
+        assert_eq!(h % 28, 0);
+    }
+}

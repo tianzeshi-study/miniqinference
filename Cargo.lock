@@ -1295,16 +1295,64 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
+name = "miniqwen-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "image",
+ "miniqwen-core",
+]
+
+[[package]]
+name = "miniqwen-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "minijinja",
+ "ndarray 0.15.6",
+ "ndarray-stats",
+ "ort",
+ "serde",
+ "serde_json",
+ "tokenizers",
+]
+
+[[package]]
 name = "miniqwen-python"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "image",
+ "miniqwen-core",
  "ort",
  "pyo3",
- "qwen-core",
  "serde_json",
  "tokenizers",
+]
+
+[[package]]
+name = "miniqwen-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "clap",
+ "futures",
+ "image",
+ "miniqwen-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1798,6 +1846,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b14b5775b5ff446dd1056212d778012cbe8a0fbffd368029fd9e25b514479c38"
 dependencies = [
  "once_cell",
+ "python3-dll-a",
  "target-lexicon",
 ]
 
@@ -1837,6 +1886,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "python3-dll-a"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d80ba7540edb18890d444c5aa8e1f1f99b1bdf26fb26ae383135325f4a36042b"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "qoi"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1858,54 +1916,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41f2619966050689382d2b44f664f4bc593e129785a36d6ee376ddf37259b924"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "qwen-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "image",
- "qwen-core",
-]
-
-[[package]]
-name = "qwen-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "image",
- "minijinja",
- "ndarray 0.15.6",
- "ndarray-stats",
- "ort",
- "serde",
- "serde_json",
- "tokenizers",
-]
-
-[[package]]
-name = "qwen-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "axum",
- "base64 0.22.1",
- "chrono",
- "clap",
- "futures",
- "image",
- "qwen-core",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

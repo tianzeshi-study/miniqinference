@@ -120,3 +120,25 @@ pub struct ModelsResponse {
     pub object: String,
     pub data: Vec<ModelInfo>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_request_deserialization() {
+        let json = r#"{
+            "model": "qwen2_vl",
+            "messages": [
+                {"role": "user", "content": "hello"}
+            ],
+            "stream": true,
+            "enable_thinking": true
+        }"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.model, "qwen2_vl");
+        assert!(req.stream);
+        assert_eq!(req.enable_thinking, Some(true));
+        assert_eq!(req.max_tokens, Some(2048));
+    }
+}
