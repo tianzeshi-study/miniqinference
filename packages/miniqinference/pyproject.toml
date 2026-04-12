@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "miniqinference"
+version = "0.1.0"
+description = "MiniQ Inference Toolkit"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = []
+
+[project.optional-dependencies]
+cli = ["qwen-cli"]
+server = ["qwen-server"]
+all = ["qwen-cli", "qwen-server"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miniqinference"]
