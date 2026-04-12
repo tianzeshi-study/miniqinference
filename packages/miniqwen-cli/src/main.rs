@@ -1,4 +1,4 @@
-use qwen_core::{ChatMessage, GenerateParams, InferencePipeline, StreamAction};
+use miniqwen_core::{ChatMessage, GenerateParams, InferencePipeline, StreamAction};
 use anyhow::Result;
 use clap::Parser;
 use std::io::{self, Write};

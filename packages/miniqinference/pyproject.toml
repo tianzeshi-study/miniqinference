@@ -11,9 +11,9 @@ requires-python = ">=3.7"
 dependencies = []
 
 [project.optional-dependencies]
-cli = ["qwen-cli"]
-server = ["qwen-server"]
-all = ["qwen-cli", "qwen-server"]
+cli = ["miniqwen-cli"]
+server = ["miniqwen-server"]
+all = ["miniqwen-cli", "miniqwen-server"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/miniqinference"]

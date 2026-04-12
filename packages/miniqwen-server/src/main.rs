@@ -4,7 +4,7 @@ mod types;
 use api::AppState;
 use axum::{routing::{get, post}, Router};
 use clap::Parser;
-use qwen_core::InferencePipeline;
+use miniqwen_core::InferencePipeline;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;

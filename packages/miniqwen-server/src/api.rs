@@ -9,7 +9,7 @@ use axum::{
 };
 
 use tokio::sync::Mutex;
-use qwen_core::{
+use miniqwen_core::{
     ContentPart, GenerateParams, InferencePipeline,
     MessageContent, StreamAction,
 };
@@ -55,7 +55,7 @@ pub async fn chat_completions(
 
 /// Extract image from messages (supports base64 data URLs and local file paths)
 async fn extract_image_from_messages(
-    messages: &[qwen_core::ChatMessage],
+    messages: &[miniqwen_core::ChatMessage],
 ) -> Option<image::DynamicImage> {
     for msg in messages {
         if msg.role != "user" {
@@ -110,7 +110,7 @@ async fn handle_non_stream(
     model_name: String,
     image: Option<image::DynamicImage>,
     params: GenerateParams,
-    tools: Option<Vec<qwen_core::Tool>>,
+    tools: Option<Vec<miniqwen_core::Tool>>,
 ) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
     let mut pipeline = state.pipeline.lock().await;
 
@@ -202,7 +202,7 @@ async fn handle_stream(
     model_name: String,
     image: Option<image::DynamicImage>,
     params: GenerateParams,
-    tools: Option<Vec<qwen_core::Tool>>,
+    tools: Option<Vec<miniqwen_core::Tool>>,
 ) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
     // Collect all tokens in a blocking task, then stream them
     let (tx, rx) = tokio::sync::mpsc::channel::<String>(256);

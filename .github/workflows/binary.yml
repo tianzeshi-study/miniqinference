@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [miniqwen-cli, miniqwen-server]
+        package: [miniqwen-cli, miniqwen-server, miniqwen-python]
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     steps:
       - uses: actions/checkout@v6
@@ -52,8 +52,8 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [miniqwen-cli, miniqwen-server]
-        target: [x86_64, x64, aarch64]
+        package: [miniqwen-cli, miniqwen-server, miniqwen-python]
+        target: [x64, x86, aarch64]
     steps:
       - uses: actions/checkout@v6
       - name: Build wheels
@@ -72,7 +72,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        package: [miniqwen-cli, miniqwen-server]
+        package: [miniqwen-cli, miniqwen-server, miniqwen-python]
         target: [aarch64] # ort-sys@2.0.0-rc.12: ort does not provide prebuilt binaries for the target `x86_64-apple-darwin` with feature set (no features).
     steps:
       - uses: actions/checkout@v6

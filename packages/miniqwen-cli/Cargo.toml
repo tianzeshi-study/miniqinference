@@ -1,5 +1,5 @@
 [package]
-name = "qwen-cli"
+name = "miniqwen-cli"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,7 @@ name = "miniqwen-cli"
 path = "src/main.rs"
 
 [dependencies]
-qwen-core = { path = "../qwen-core" }
+miniqwen-core = { path = "../miniqwen-core" }
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 image = "0.25.10"

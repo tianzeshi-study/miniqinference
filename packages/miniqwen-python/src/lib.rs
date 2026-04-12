@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
-use qwen_core::config::QwenConfig;
-use qwen_core::model::QwenEngine;
+use miniqwen_core::config::QwenConfig;
+use miniqwen_core::model::QwenEngine;
 use tokenizers::Tokenizer;
 use std::path::PathBuf;
 use ort::value::DynValue;
@@ -75,7 +75,7 @@ impl Qwen {
 }
 
 #[pymodule]
-fn qwen_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn miniqwen_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Qwen>()?;
     Ok(())
 }

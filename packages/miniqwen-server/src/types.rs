@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use qwen_core::{ChatMessage, Tool};
+use miniqwen_core::{ChatMessage, Tool};
 
 // ─── Request Types ───
 

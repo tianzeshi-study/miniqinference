@@ -1,5 +1,5 @@
 [package]
-name = "qwen-server"
+name = "miniqwen-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,7 @@ name = "miniqwen-server"
 path = "src/main.rs"
 
 [dependencies]
-qwen-core = { path = "../qwen-core" }
+miniqwen-core = { path = "../miniqwen-core" }
 anyhow = "1.0"
 axum = { version = "0.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
