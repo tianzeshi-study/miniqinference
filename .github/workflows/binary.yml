@@ -53,7 +53,7 @@ jobs:
     strategy:
       matrix:
         package: [miniqwen-cli, miniqwen-server, miniqwen-python]
-        target: [x64, x86, aarch64]
+        target: [x64,  aarch64] # error: ort-sys@2.0.0-rc.12: ort does not provide prebuilt binaries for the target `i686-pc-windows-msvc` with feature set (no features).,error: ort-sys@2.0.0-rc.12:  | You may have to compile ONNX Runtime from source and link `ort` to your custom build; see https://ort.pyke.io/setup/linking
     steps:
       - uses: actions/checkout@v6
       - name: Build wheels
