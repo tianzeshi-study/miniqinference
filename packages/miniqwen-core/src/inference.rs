@@ -5,7 +5,10 @@ use anyhow::Result;
 use image::DynamicImage;
 use ort::value::DynValue;
 use std::path::Path;
+use std::time::Instant;
 use tokenizers::Tokenizer;
+use tracing::debug;
+use memory_stats::memory_stats;
 
 /// Generation parameters
 #[derive(Debug, Clone)]
@@ -122,6 +125,7 @@ impl InferencePipeline {
         let mut current_pos: i64;
         let mut kv_len: usize;
 
+        let start_prefill = Instant::now();
         // Prefill
         if let (Some(img), true) = (image, !image_token_indices.is_empty()) {
             let (image_embeds, _shape, thw) = self.engine.encode_image(img)?;
@@ -148,9 +152,13 @@ impl InferencePipeline {
             current_pos = seq_len as i64;
             kv_len = seq_len;
         }
+        let prefill_duration = start_prefill.elapsed();
+        debug!("Prefill took: {:?}", prefill_duration);
 
         // Decode loop
         let mut full_output = String::new();
+        let mut token_count = 0;
+        let start_decode = Instant::now();
         for _ in 0..params.max_tokens {
             if next_token == eos_id {
                 break;
@@ -175,6 +183,20 @@ impl InferencePipeline {
             )?;
             current_pos += 1;
             kv_len += 1;
+            token_count += 1;
+        }
+        let decode_duration = start_decode.elapsed();
+        
+        if token_count > 0 {
+            let ms_per_token = decode_duration.as_millis() as f64 / token_count as f64;
+            debug!("Decode took: {:?} for {} tokens ({:.2} ms/token, {:.2} tokens/s)", 
+                decode_duration, token_count, ms_per_token, 1000.0 / ms_per_token);
+        }
+
+        if let Some(usage) = memory_stats() {
+            debug!("Memory usage: RSS {} MB, Virtual {} MB", 
+                usage.physical_mem / 1024 / 1024, 
+                usage.virtual_mem / 1024 / 1024);
         }
 
         Ok(full_output)

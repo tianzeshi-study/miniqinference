@@ -3,6 +3,8 @@ use anyhow::Result;
 use clap::Parser;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use tracing::debug;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "MiniQwen CLI - local multimodal inference")]
@@ -29,6 +31,12 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    // Initialize logging
+    tracing_subscriber::registry()
+        .with(fmt::layer().with_writer(io::stderr))
+        .with(EnvFilter::from_default_env())
+        .init();
+
     let args = Args::parse();
 
     if !args.model_dir.exists() {
@@ -36,7 +44,7 @@ fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    println!("Loading model from {:?}...", args.model_dir);
+    debug!("Loading model from {:?}...", args.model_dir);
     let mut pipeline = InferencePipeline::load(&args.model_dir)?;
 
     // Build message: if image is provided, use multimodal message
@@ -52,7 +60,7 @@ fn main() -> Result<()> {
             eprintln!("Error: Image file {:?} not found", image_path);
             std::process::exit(1);
         }
-        println!("Loading image {:?}...", image_path);
+        debug!("Loading image {:?}...", image_path);
         Some(image::open(image_path)?)
     } else {
         None
@@ -63,7 +71,7 @@ fn main() -> Result<()> {
         enable_thinking: args.enable_thinking,
     };
 
-    println!("\n--- Generating ---\n");
+    debug!("--- Generating ---");
 
     let _output = pipeline.generate(
         &messages,
@@ -77,6 +85,6 @@ fn main() -> Result<()> {
         },
     )?;
 
-    println!("\n\n--- Done ---");
+    debug!("--- Done ---");
     Ok(())
 }

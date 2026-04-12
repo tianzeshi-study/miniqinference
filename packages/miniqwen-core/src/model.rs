@@ -3,6 +3,7 @@ use anyhow::Result;
 use ort::session::Session;
 use ort::value::{DynValue, Value};
 use std::path::Path;
+use tracing::debug;
 
 use image::{DynamicImage, GenericImageView};
 use ndarray::{Array2, Array4};
@@ -79,8 +80,8 @@ fn preprocess_image(
     // 返回 grid_thw，注意 Qwen2-VL 期望的是合并后的 grid 尺寸
     // 即 [1, grid_h, grid_w]
     
-    println!("=== RUST PREPROCESSING DEBUG ===");
-    println!("flatten_patches shape: {:?}", flattened.shape());
+    debug!("=== RUST PREPROCESSING DEBUG ===");
+    debug!("flatten_patches shape: {:?}", flattened.shape());
     
     if let Some(slice) = flattened.as_slice() {
         let len = slice.len();
@@ -90,15 +91,15 @@ fn preprocess_image(
         } else {
             slice.to_vec()
         };
-        println!("flatten_patches first 10: {:?}", first_10);
-        println!("flatten_patches last 10: {:?}", last_10);
+        debug!("flatten_patches first 10: {:?}", first_10);
+        debug!("flatten_patches last 10: {:?}", last_10);
     }
     
     let sum: f32 = flattened.iter().sum();
-    println!("flatten_patches sum: {}", sum);
+    debug!("flatten_patches sum: {}", sum);
     
-    println!("image_grid_thw data: {:?}", [1i64, grid_h as i64, grid_w as i64]);
-    println!("==============================\n");
+    debug!("image_grid_thw data: {:?}", [1i64, grid_h as i64, grid_w as i64]);
+    debug!("==============================\n");
 
     Ok((flattened, [1i64, grid_h as i64, grid_w as i64]))
 }

@@ -17,3 +17,5 @@ anyhow = "1.0"
 image = "0.25.10"
 ndarray-stats = "0.7.0"
 minijinja = { version = "2", features = ["builtins", "json"] }
+tracing = "0.1"
+memory-stats = "1.2"
