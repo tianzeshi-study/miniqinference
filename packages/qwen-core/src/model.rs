@@ -5,7 +5,7 @@ use ort::value::{DynValue, Value};
 use std::path::Path;
 
 use image::{DynamicImage, GenericImageView};
-use ndarray::{Array2, Array4, s};
+use ndarray::{Array2, Array4};
 
 fn preprocess_image(
     image: &DynamicImage,
@@ -43,19 +43,6 @@ fn preprocess_image(
     let grid_w = new_width as usize / patch_size;
     let gh_m = grid_h / merge_size;
     let gw_m = grid_w / merge_size;
-
-    // 修复 E0277：将元组改为数组 [usize; 8]
-    // 这是 ndarray 0.15 处理高维张量的标准做法
-    let shape_8d = [
-        grid_t, 
-        channel, 
-        gh_m, 
-        merge_size, 
-        patch_size, 
-        gw_m, 
-        merge_size, 
-        patch_size
-    ];
 
     // 4. 执行重排与展平 (等效于 JS 的 .permute(0, 3, 6, 4, 7, 2, 1, 5, 8))
     let mut flattened = Array2::<f32>::zeros((
@@ -145,75 +132,6 @@ fn smart_resize(
     (w_bar, h_bar)
 }
 
-fn preprocess_image1(
-    image: &DynamicImage,
-    patch_size: usize,
-    temporal_patch_size: usize,
-    merge_size: usize,
-    min_pixels: u32,
-    max_pixels: u32,
-) -> Result<(Array2<f32>, [i64; 3])> {
-    let (width, height) = image.dimensions();
-    let factor = (patch_size * merge_size) as u32;
-    let (new_width, new_height) = smart_resize(height, width, factor, min_pixels, max_pixels);
-
-    let resized = image.resize_exact(new_width, new_height, image::imageops::FilterType::Triangle);
-    let mut pixels = Array4::<f32>::zeros((1, 3, new_height as usize, new_width as usize));
-
-    let mean = [0.48145466, 0.4578275, 0.40821073];
-    let std = [0.26862954, 0.26130258, 0.27577711];
-    for (x, y, color) in resized.pixels() {
-        pixels[[0, 0, y as usize, x as usize]] = (color[0] as f32 / 255.0 - mean[0]) / std[0];
-        pixels[[0, 1, y as usize, x as usize]] = (color[1] as f32 / 255.0 - mean[1]) / std[1];
-        pixels[[0, 2, y as usize, x as usize]] = (color[2] as f32 / 255.0 - mean[2]) / std[2];
-    }
-
-    let mut patches = Array4::<f32>::zeros((temporal_patch_size, 3, new_height as usize, new_width as usize));
-    for t in 0..temporal_patch_size {
-        patches.slice_mut(s![t, .., .., ..]).assign(&pixels.slice(s![0, .., .., ..]));
-    }
-
-    let grid_t = patches.shape()[0] / temporal_patch_size;
-    let grid_h = patches.shape()[2] / patch_size;
-    let grid_w = patches.shape()[3] / patch_size;
-    
-    let channel = 3;
-    let patch_dim = channel * temporal_patch_size * patch_size * patch_size;
-    let num_patches = grid_t * grid_h * grid_w;
-    let mut flattened = Array2::<f32>::zeros((num_patches, patch_dim));
-
-    let blocks_h = grid_h / merge_size;
-    let blocks_w = grid_w / merge_size;
-    
-    let mut idx = 0;
-    for t in 0..grid_t {
-        for b_h in 0..blocks_h {
-            for b_w in 0..blocks_w {
-                for m_h in 0..merge_size {
-                    for m_w in 0..merge_size {
-                        let h = b_h * merge_size + m_h;
-                        let w = b_w * merge_size + m_w;
-                        
-                        let mut p_idx = 0;
-                        for c in 0..channel {
-                            for tp in 0..temporal_patch_size {
-                                for ph in 0..patch_size {
-                                    for pw in 0..patch_size {
-                                        flattened[[idx, p_idx]] = patches[[t * temporal_patch_size + tp, c, h * patch_size + ph, w * patch_size + pw]];
-                                        p_idx += 1;
-                                    }
-                                }
-                            }
-                        }
-                        idx += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    Ok((flattened, [grid_t as i64, grid_h as i64, grid_w as i64]))
-}
 
 pub struct QwenEngine {
     pub embed_session: Session,

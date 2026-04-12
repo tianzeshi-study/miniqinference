@@ -43,6 +43,7 @@ impl Qwen {
             input_ids.clone(),
             &mut kv_cache,
             (0..input_ids.len() as i64).collect(),
+            input_ids.len(),
             true
         ).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Forward failed: {}", e)))?;
 
@@ -63,6 +64,7 @@ impl Qwen {
                 input_ids.clone(),
                 &mut kv_cache,
                 vec![current_pos],
+                current_pos as usize + 1,
                 false
             ).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Forward failed: {}", e)))?;
             current_pos += 1;

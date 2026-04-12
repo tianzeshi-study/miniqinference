@@ -4,6 +4,7 @@ use qwen_core::{ChatMessage, Tool};
 // ─── Request Types ───
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
