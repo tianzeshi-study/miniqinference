@@ -17,6 +17,10 @@ struct Args {
     #[arg(short, long)]
     image: Option<PathBuf>,
 
+    /// Base64 encoded image (enables multimodal mode)
+    #[arg(short = 'b', long)]
+    base64_image: Option<String>,
+
     /// Path to the model directory
     #[arg(short, long, default_value = "models")]
     model_dir: PathBuf,
@@ -48,13 +52,13 @@ fn main() -> Result<()> {
     let mut pipeline = InferencePipeline::load(&args.model_dir)?;
 
     // Build message: if image is provided, use multimodal message
-    let messages = if args.image.is_some() {
+    let messages = if args.image.is_some() || args.base64_image.is_some() {
         vec![ChatMessage::user_with_image(&args.prompt)]
     } else {
         vec![ChatMessage::user(&args.prompt)]
     };
 
-    // Load image if provided
+    // Load image if provided via file or base64
     let image = if let Some(ref image_path) = args.image {
         if !image_path.exists() {
             eprintln!("Error: Image file {:?} not found", image_path);
@@ -62,6 +66,18 @@ fn main() -> Result<()> {
         }
         debug!("Loading image {:?}...", image_path);
         Some(image::open(image_path)?)
+    } else if let Some(ref b64_str) = args.base64_image {
+        debug!("Decoding base64 image...");
+        let b64_data = if b64_str.starts_with("data:image") {
+            b64_str.splitn(2, ",").nth(1).ok_or_else(|| anyhow::anyhow!("Invalid data URL format"))?
+        } else {
+            b64_str
+        };
+        let decoded = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            b64_data,
+        )?;
+        Some(image::load_from_memory(&decoded)?)
     } else {
         None
     };
@@ -87,4 +103,34 @@ fn main() -> Result<()> {
 
     debug!("--- Done ---");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_args_parsing_image() {
+        let args = Args::try_parse_from(&["miniqwen-cli", "--prompt", "hello", "--image", "test.jpg"]).unwrap();
+        assert_eq!(args.prompt, "hello");
+        assert_eq!(args.image, Some(PathBuf::from("test.jpg")));
+        assert_eq!(args.base64_image, None);
+    }
+
+    #[test]
+    fn test_args_parsing_base64() {
+        let args = Args::try_parse_from(&["miniqwen-cli", "--prompt", "hello", "-b", "YmFzZTY0"]).unwrap();
+        assert_eq!(args.prompt, "hello");
+        assert_eq!(args.image, None);
+        assert_eq!(args.base64_image, Some("YmFzZTY0".to_string()));
+    }
+
+    #[test]
+    fn test_args_parsing_both() {
+        let args = Args::try_parse_from(&["miniqwen-cli", "--prompt", "hello", "-i", "test.jpg", "-b", "YmFzZTY0"]).unwrap();
+        assert_eq!(args.prompt, "hello");
+        assert_eq!(args.image, Some(PathBuf::from("test.jpg")));
+        assert_eq!(args.base64_image, Some("YmFzZTY0".to_string()));
+    }
 }

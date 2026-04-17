@@ -1315,9 +1315,10 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniqwen-cli"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "clap",
  "image",
  "miniqwen-core",
@@ -1327,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "miniqwen-core"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "image",
@@ -1344,7 +1345,7 @@ dependencies = [
 
 [[package]]
 name = "miniqwen-python"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "image",
@@ -1357,7 +1358,7 @@ dependencies = [
 
 [[package]]
 name = "miniqwen-server"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-stream",

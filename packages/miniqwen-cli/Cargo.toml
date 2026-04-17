@@ -12,5 +12,6 @@ miniqwen-core = { path = "../miniqwen-core" }
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 image = "0.25.10"
+base64 = "0.22"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
